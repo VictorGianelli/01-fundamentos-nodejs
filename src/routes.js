@@ -7,45 +7,76 @@ const database = new Database()
 export const routes = [
   {
     method: 'GET',
-    path: buildRoutePath('/users'),
+    path: buildRoutePath('/tasks'),
     handler: (req, res) => {
       const { search } = req.query
 
-      const users = database.select('users', search ? {
-        name: search,
-        email: search
+      const tasks = database.select('tasks', search ? {
+        title: search,
+        description: search
       } : null)
 
-      return res.end(JSON.stringify(users))
+      return res.end(JSON.stringify(tasks))
     }
   },
   {
     method: 'POST',
-    path: buildRoutePath('/users'),
+    path: buildRoutePath('/tasks'),
     handler: (req, res) => {
-      const { name, email } = req.body
+      const { title, description } = req.body
 
-      const user = {
-        id: randomUUID(),
-        name,
-        email,
+      if (!title) {
+        return res.writeHead(400).end(
+          JSON.stringify({ message: 'title is required' }),
+        )
       }
 
-      database.insert('users', user)
+      if (!description) {
+        return res.writeHead(400).end(
+          JSON.stringify({message: 'description is required' })
+        )
+      }
+
+      const task = {
+        id: randomUUID(),
+        title,
+        description,
+        completed_at: null,
+        created_at: new Date(),
+        updated_at: new Date(),
+      }
+
+      database.insert('tasks', task)
 
       return res.writeHead(201).end()
     }
   },
   {
     method: 'PUT',
-    path: buildRoutePath('/users/:id'),
+    path: buildRoutePath('/tasks/:id'),
     handler: (req, res) => {
       const { id } = req.params
-      const { name, email } = req.body
+      const { title, description } = req.body
 
-      database.update('users', id, {
-        name,
-        email,
+      console.log("*"+id)
+
+      if (!title || !description) {
+        return res.writeHead(400).end(
+          JSON.stringify({ message: 'title or description are required' })
+        )
+      }
+
+      const [task] = database.select('tasks', { id })
+
+      if (!task) {
+        return res.writeHead(404).end()
+      }
+
+
+      database.update('tasks', id, {
+        title,
+        description,
+        updated_at: new Date()
       })
 
       return res.writeHead(204).end()
@@ -53,13 +84,39 @@ export const routes = [
   },
   {
     method: 'DELETE',
-    path: buildRoutePath('/users/:id'),
+    path: buildRoutePath('/tasks/:id'),
     handler: (req, res) => {
       const { id } = req.params
 
-      database.delete('users', id)
+      const [task] = database.select('tasks', { id })
+
+      if (!task) {
+        return res.writeHead(404).end()
+      }
+
+      database.delete('tasks', id)
 
       return res.writeHead(204).end()
     }
   },
+  {
+    method: 'PATCH',
+    path: buildRoutePath('/tasks/:id/complete'),
+    handler: (req, res) => {
+      const { id } = req.params
+
+      const [task] = database.select('tasks', { id })
+
+      if (!task) {
+        return res.writeHead(404).end()
+      }
+
+      const isTaskCompleted = !!task.completed_at
+      const completed_at = isTaskCompleted ? null : new Date()
+
+      database.update('tasks', id, { completed_at })
+
+      return res.writeHead(204).end()
+    }
+  }
 ]
